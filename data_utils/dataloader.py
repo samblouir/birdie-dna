@@ -697,7 +697,7 @@ def create_clm_batch_generator(
 	try:
 		return utils.quick_load(cache_key)
 	except Exception as e:
-		utils.debug_print(f"  Creating {number_of_batches} batches for {split}")
+		utils.debug_print(f"  Creating {number_of_batches} batches for {split} (this will appear to hang, give it ~5 minutes)")
 		# Otherwise, gather exactly 'number_of_batches' and return
 		progress_bar = tqdm(total=number_of_batches, disable=(worker_idx != 0), desc=f"Preparing {number_of_batches} batches for {split}")
 		batches = []
