@@ -19,14 +19,11 @@ from typing import Optional, Any
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import einops
 import utils
 
 import torch.nn.attention.flex_attention as flex_attention
 from torch.nn.attention.flex_attention import create_block_mask
 from modeling import rotary, softcap
-from modeling.prepare_optimizer import create_optimizer  # If needed
-# from modeling import utils as modeling_utils
 
 
 ################################################################################

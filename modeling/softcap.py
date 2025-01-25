@@ -3,6 +3,8 @@
 =============================================================================
 TANH SOFTCAPPING LOGIT MOD
 --------------------------
+Copied from Gemma 2's repo.
+
 Implements a 'tanh softcap' function to limit extreme attention scores,
 inspired by Gemma2 and other experiments.
 
