@@ -1,0 +1,7 @@
+torch>=2.7.0
+tqdm
+biopython
+git+https://github.com/huggingface/accelerate
+numpy==1.26.4
+einops
+accelerate
