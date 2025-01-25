@@ -7,7 +7,7 @@ Supports:
   - Rotary embeddings
   - GQA (Group Query Attention) (set (gqa_num_heads < num_heads) and (gqa_num_heads % num_heads == 0))
   - RMSNorm
-  - (Optional) fused cross-entropy that does not material logits
+  - (Optional) fused cross-entropy that does not materialize logits
   - Segment-aware block mask
   - FAN-in (as seen in JAX, similar to OLMO 2) param inits
 ===============================================================================
@@ -22,46 +22,11 @@ import torch.nn.functional as F
 import einops
 import utils
 
-# Custom modules:
 import torch.nn.attention.flex_attention as flex_attention
 from torch.nn.attention.flex_attention import create_block_mask
 from modeling import rotary, softcap
 from modeling.prepare_optimizer import create_optimizer  # If needed
 # from modeling import utils as modeling_utils
-
-
-################################################################################
-# Utility Functions
-################################################################################
-
-def make_divisible_by(x: int, divisor: int, round_up: bool = True) -> int:
-	"""
-	Ensures 'x' is divisible by 'divisor' by either rounding up or down.
-	Example:
-	  - make_divisible_by(10, 8, round_up=False) -> 8
-	  - make_divisible_by(10, 8, round_up=True) -> 16
-	"""
-	if divisor == 0:
-		raise ValueError("Divisor cannot be zero.")
-	remainder = x % divisor
-	if remainder == 0:
-		return x
-	return x + (divisor - remainder) if round_up else x - remainder
-
-def make_power_of_2(x: int, round_up: bool = True) -> int:
-	"""
-	Adjust 'x' to the nearest power of two (either up or down).
-	Example:
-	  - make_power_of_2(10, round_up=True)  -> 16
-	  - make_power_of_2(10, round_up=False) -> 8
-	"""
-	x = int(x)
-	if x < 1:
-		return 1
-	if round_up:
-		return 2 ** (x - 1).bit_length()
-	else:
-		return 2 ** ((x).bit_length() - 1)
 
 
 ################################################################################
@@ -131,8 +96,8 @@ class LinearProjection(nn.Module):
 		param_dtype = kwargs.get("dtype", torch.float32)
 
 		# Make in_dim and out_dim multiples of 128 for performance
-		in_dim = make_divisible_by(in_dim, 128)
-		out_dim = make_divisible_by(out_dim, 128)
+		in_dim = utils.make_divisible_by(in_dim, 128)
+		out_dim = utils.make_divisible_by(out_dim, 128)
 
 		param_dtype = utils.str_to_dtype(param_dtype)
 
@@ -265,8 +230,8 @@ class SwiGLU(nn.Module):
 		mlp_mult = kwargs.get("mlp_dim_mult", 4.0)
 
 		# Round hidden_size to multiple of 16 for HPC alignment if desired
-		in_dim = make_divisible_by(hidden_size, 16)
-		ffn_dim = make_divisible_by(int(in_dim * mlp_mult), 16)
+		in_dim = utils.make_divisible_by(hidden_size, 16)
+		ffn_dim = utils.make_divisible_by(int(in_dim * mlp_mult), 16)
 
 		# Two parallel input layers
 		self.wi_0 = LinearProjection(in_dim, ffn_dim, **kwargs)
@@ -312,8 +277,8 @@ class BaseModel(nn.Module):
 	"""
 	A flexible Transformer-like model that:
 	  1) Has an embedding layer (vocab_size x hidden_size).
-	  2) Stacks MHA + FFN blocks (with optional RMSNorm, GQA, rotary, etc.).
-	  3) Ends with a final RMSNorm and a projection to vocab_size (if doing LM).
+	  2) Stacks MHA + MLP layers (with optional RMSNorm, GQA, rotary, etc.).
+	  3) Ends with a final RMSNorm, and has a projection to vocab_size (assuming we're doing LM).
 
 	If label_ids is provided, returns cross-entropy loss. Otherwise returns logits.
 	"""
@@ -384,7 +349,7 @@ class BaseModel(nn.Module):
 		)
 
 		# Vocab head
-		head_in_dim = make_divisible_by(self.hidden_size, 128)
+		head_in_dim = utils.make_divisible_by(self.hidden_size, 128)
 		head_out_dim = self.vocab_size
 		self.vocab_head = nn.Parameter(torch.randn(head_in_dim, head_out_dim), requires_grad=True)
 		fan_in_head = head_out_dim

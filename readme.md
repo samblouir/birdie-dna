@@ -30,12 +30,20 @@ The code is designed to be both convenient and hackable. It supports tasks like:
 
 ## 1) Project Overview
 
- Currently, this trains a Transformer language model on DNA sequences (currently genomic data from T2T)
+ Currently, this trains a Transformer language model on DNA sequences (currently genomic data from T2T).
 
-- **Tokenizer**: A ByT5-like byte-level tokenizer for DNA characters, and is easily replaceable.  
-- **Data Loader**: Automatic download and extraction of T2T.
-- **Model**: A “BaseModel” that uses standard Transformer blocks with optional features (e.g., rotary embeddings, GQA).  
-- **Training** and **Evaluation**: Uses [Hugging Face Accelerate](https://github.com/huggingface/accelerate) to handle multi-machine and multi-GPU setups.
+ The two current supported steps are:
+- **Training**: Run `train.py` with a config file to train a model on DNA sequences.
+- **Evaluation**: Run `evaluate_model.py` to evaluate a trained model on the DNA test set.
+
+More evaluation tasks are being added.
+
+## FAQ:
+
+1. I want to add an SSM
+	- Add something like "use_ssm" = True to your config file.
+	- Add 
+
 
 ---
 
@@ -52,13 +60,24 @@ The code is designed to be both convenient and hackable. It supports tasks like:
 
    ```bash
    pip install -r requirements.txt
+
+   # Will need Torch Nightly. Thet version depends on your CUDA version.
+   ## Cuda 11.8
+   pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu118
+   ## Cuda 12.4
+   pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu124
+   ## Cuda 12.6
+   pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu126
+
+   ## Cuda 12.3? You may need to build Torch from source...
    ```
 
    The key libraries are:
-   - **PyTorch** (version 2.7.0 or higher, GPU recommended)
+   - **PyTorch** (version 2.7.0 or higher, GPU recommended, should likely use nightly)
    - **accelerate** + **tqdm** + **biopython** + **einops**
    - **numpy**  
-   Make sure you also have a recent Python 3.8+ environment.
+
+   Tested with Python 3.10.11
 
 3. **(Optional) Setup a virtual environment**:
 
@@ -136,7 +155,7 @@ This will:
 
 ### 4.2 Quick Start Evaluation
 
-After training (or while checkpoints are being saved), you can evaluate the model on the test split using **`evaluate_model.py`**. For example:
+After training (or after some checkpoints are saved), you can evaluate the model on the test split using **`evaluate_model.py`**. For example:
 
 ```bash
 accelerate launch evaluate_model.py --config=mini
