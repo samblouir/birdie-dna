@@ -31,6 +31,7 @@ import numpy as np
 from tqdm import tqdm
 from Bio import SeqIO
 import multiprocessing as mp
+import time
 import utils  # For debug_print, etc.
 
 ##############################################################################
@@ -469,7 +470,6 @@ def load_dataset(
 ##############################################################################
 # 4) BATCH GENERATOR FOR CAUSAL LANGUAGE MODELING
 ##############################################################################
-
 def _batcher(
 	dataset: typing.Union[typing.List[typing.Any], 'DatasetWrapper'],
 	tokenizer,
@@ -481,11 +481,19 @@ def _batcher(
 	worker_idx: int = 0,
 	infinite_loop: bool = None,
 	output_queue=None,
+	split=None,
 	**kwargs
 	):
 
+	assert(0 < batch_size), f"  ASSERTION FAILED. worker_idx: {worker_idx}. (0 < batch_size) is False (batch_size: {batch_size})"
+	assert(0 < max_sequence_length), f"  ASSERTION FAILED. worker_idx: {worker_idx}. (0 < max_sequence_length) is False (max_sequence_length: {max_sequence_length})"
+	assert(0 < num_workers), f"  ASSERTION FAILED. worker_idx: {worker_idx}. (0 < num_workers) is False (num_workers: {num_workers})"
+	assert(0 <= worker_idx), f"  ASSERTION FAILED. worker_idx: {worker_idx}. (0 <= worker_idx) is False (worker_idx: {worker_idx})"
+	assert(0 < len(dataset)), f"  ASSERTION FAILED. worker_idx: {worker_idx}. (0 < len(dataset)) is False (len(dataset): {len(dataset})"
+
 	def data_iter(ds):
 		"""If infinite_loop is True, yield items repeatedly."""
+		utils.debug_print(f"  data_iter() starting. infinite_loop={infinite_loop}")
 		if infinite_loop:
 			while True:
 				yield from ds
@@ -496,70 +504,99 @@ def _batcher(
 	batch_label_ids = []
 	batch_segment_ids = []
 
+	
 
-	for item in data_iter(dataset):
+	utils.debug_print(f"  starting worker_idx: {worker_idx}, len(dataset): {len(dataset)}.")
+
+
+	for item_idx, item in enumerate(data_iter(dataset)):
+
 		# Extract raw text
 		if isinstance(item, dict) and ("entry" in item) and hasattr(item["entry"], "text"):
 			text = item["entry"].text
 		else:
-			text = item  # Assume item is directly a string or something tokenize-able
+			text = item  # Assume item is a string
 
-		# all_chunks = np.array_split(text, num_workers)
-		# our_chunk_text = all_chunks[worker_idx] if worker_idx < len(all_chunks) else []
+		if not isinstance(text, str):
+			utils.debug_print(f"  WARNING: item_idx={item_idx} text is not a string. type(text)={type(text)}")
+
 		chunk_size = (len(text) + num_workers - 1) // num_workers
 		start = worker_idx * chunk_size
-		end = start + chunk_size
+		end   = start + chunk_size
 		our_chunk_text = text[start:end]
 
 
-		if not len(our_chunk_text):
+		if (len(our_chunk_text) <= 0):
 			continue
 
 		# Tokenize the text
-		our_chunk = tokenizer.encode(our_chunk_text)
+		try:
+			our_chunk = tokenizer.encode(our_chunk_text)
+		except Exception as e:
+			utils.debug_print(f"  ERROR: worker_idx={worker_idx} failed to tokenize chunk. Exception: {str(e)}")
+			continue
 
-		# Split token_ids across workers (if using multiple workers)
+		if item_idx < 10 or (item_idx % 1000) == 0:
+			utils.debug_print(f"  worker_idx={worker_idx} item_idx={item_idx} tokenized to {len(our_chunk)}.")
 
 		# Now process in windows of exactly (max_sequence_length + 1)
 		# so input_ids has length max_sequence_length and label_ids has length max_sequence_length.
-		for start in range(0, len(our_chunk), max_sequence_length):
-			end = start + max_sequence_length + 1
-			window = our_chunk[start:end]
-
-			# If the window is too short, discard it
+		window_size = max_sequence_length + 1
+		for start_idx in range(0, len(our_chunk), max_sequence_length):
+			end_idx = start_idx + window_size
+			window = our_chunk[start_idx:end_idx]
 
 			if len(window) < minimum_sample_length:
+				if (item_idx < 10 or (item_idx % 1000) == 0):
+					utils.debug_print(f"    worker_idx={worker_idx} short window (len={len(window)}) < {minimum_sample_length}, skipping.")
 				continue
-			
-			# Slightly non-optimal right now.
-			# Placeholder to add sequence packing.
+
 			segment_id = (len(batch_input_ids) + 1)
-			segment_ids = [segment_id] * len(window) + [0]
-			# The first max_sequence_length tokens are input, shifted by 1 for labels
-			input_ids = window[:-1]
-			label_ids = window[1:]
+			segment_ids = [segment_id] * len(window)  # length = len(window)
+			# The first max_sequence_length tokens are input, shifted by 1 for the labels
+			input_ids = window[:-1]   # length = len(window) - 1
+			label_ids = window[1:]    # length = len(window) - 1
 
 			batch_input_ids.append(input_ids)
 			batch_label_ids.append(label_ids)
 			batch_segment_ids.append(segment_ids)
 
-			# If we have enough samples to create a batch, yield a batch
+
+			# If we have enough samples to create a batch, yield or queue a batch
 			if len(batch_input_ids) == batch_size:
+				utils.debug_print(f"    worker_idx={worker_idx} REACHED BATCH SIZE = {batch_size}. Preparing batch.")
 				prepared_batch = {
-					"input_ids":   np.array(batch_input_ids,  dtype=np.int64),
-					"label_ids":   np.array(batch_label_ids,  dtype=np.int64),
+					"input_ids":   np.array(batch_input_ids,   dtype=np.int64),
+					"label_ids":   np.array(batch_label_ids,   dtype=np.int64),
 					"segment_ids": np.array(batch_segment_ids, dtype=np.int64),
 				}
+
 				if output_queue is not None:
+					utils.debug_print(f"    worker_idx={worker_idx} Attempting to put batch into output_queue. "
+									f"(current queue size unknown in this process)")
 					while True:
-						# utils.debug_print(f"  worker_idx: {worker_idx:,}. Putting batch into the queue (size: {output_queue.qsize()})")
 						try:
-							output_queue.put(prepared_batch)
-						except Exception as e:
+							output_queue.put(prepared_batch, block=True, timeout=1)
+							# utils.debug_print(f"    worker_idx: {worker_idx} Added batch into the queue.")
+							break
+						except mp.Queue.Full:
+							utils.debug_print(f"    worker_idx: {worker_idx} Queue is full. Waiting to put batch.")
 							time.sleep(0.1)
+
+						except Exception as e:
+							utils.debug_print(f"    worker_idx: {worker_idx} UNEXPECTED ERROR putting batch into the queue. Exception: {str(e)}")
+							raise e
+				else:
+					# If no queue is provided, we might do a direct yield:
+					utils.debug_print(f"    worker_idx={worker_idx} No output_queue. Possibly yield or do something else.")
+					# yield prepared_batch  # or do something
+
 				batch_input_ids.clear()
 				batch_label_ids.clear()
 				batch_segment_ids.clear()
+				utils.debug_print(f"    worker_idx={worker_idx} batch buffers cleared. Ready for next batch.")
+
+	utils.debug_print(f"  worker_idx={worker_idx} finished iterating over dataset. Exiting _batcher().")
 
 # This is a wrapper function to allow passing kwargs to the batcher
 def batcher(kwargs):
@@ -617,6 +654,8 @@ def create_clm_batch_generator(
 	assert 0 < max_sequence_length
 	assert 0 < num_workers
 	assert 0 <= worker_idx
+	assert 0 < num_processes
+	assert 0 <= process_idx
 
 	if config is None:
 		config = {}
@@ -661,14 +700,15 @@ def create_clm_batch_generator(
 
 			infinite_loop=infinite_loop,
 			output_queue=output_queue,
+			split=split,
 		)
 
 		mp.Process(target=batcher, args=(batcher_kwargs,)).start()
+		# batcher(batcher_kwargs)
 		# utils.debug_print(f"  Started worker {worker_idx:,} of {num_workers:,} (process {process_idx:,} of {num_processes:,}, total_num_workers: {total_num_workers:,})")
 		# batcher(batcher_kwargs)
 
 	def _batch_generator():
-		
 		while True:
 			yield output_queue.get()
 
@@ -697,12 +737,12 @@ def create_clm_batch_generator(
 	try:
 		return utils.quick_load(cache_key)
 	except Exception as e:
-		utils.debug_print(f"  Creating {number_of_batches} batches for {split} (this will appear to hang, give it ~5 minutes)")
+		utils.debug_print(f"  Caching {number_of_batches} batches for {split} (this will appear to hang, give it ~5 minutes)")
 		# Otherwise, gather exactly 'number_of_batches' and return
 		progress_bar = tqdm(total=number_of_batches, disable=(worker_idx != 0), desc=f"Preparing {number_of_batches} batches for {split}")
 		batches = []
 		for _ in range(number_of_batches):
-			# utils.debug_print(f"  Creating valiation batch {_} of {number_of_batches}")
+			utils.debug_print(f"  Creating valiation batch {_} of {number_of_batches}")
 			progress_bar.update(1)
 			batches.append(next(batch_generator))
 		progress_bar.close()
