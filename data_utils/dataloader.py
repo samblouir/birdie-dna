@@ -32,6 +32,7 @@ from tqdm import tqdm
 from Bio import SeqIO
 import multiprocessing as mp
 import time
+import queue
 import utils  # For debug_print, etc.
 
 ##############################################################################
@@ -489,11 +490,10 @@ def _batcher(
 	assert(0 < max_sequence_length), f"  ASSERTION FAILED. worker_idx: {worker_idx}. (0 < max_sequence_length) is False (max_sequence_length: {max_sequence_length})"
 	assert(0 < num_workers), f"  ASSERTION FAILED. worker_idx: {worker_idx}. (0 < num_workers) is False (num_workers: {num_workers})"
 	assert(0 <= worker_idx), f"  ASSERTION FAILED. worker_idx: {worker_idx}. (0 <= worker_idx) is False (worker_idx: {worker_idx})"
-	assert(0 < len(dataset)), f"  ASSERTION FAILED. worker_idx: {worker_idx}. (0 < len(dataset)) is False (len(dataset): {len(dataset})"
+	assert(0 < len(dataset)), f"  ASSERTION FAILED. worker_idx: {worker_idx}. (0 < len(dataset)) is False (len(dataset): {len(dataset)}"
 
 	def data_iter(ds):
 		"""If infinite_loop is True, yield items repeatedly."""
-		utils.debug_print(f"  data_iter() starting. infinite_loop={infinite_loop}")
 		if infinite_loop:
 			while True:
 				yield from ds
@@ -533,11 +533,11 @@ def _batcher(
 		try:
 			our_chunk = tokenizer.encode(our_chunk_text)
 		except Exception as e:
-			utils.debug_print(f"  ERROR: worker_idx={worker_idx} failed to tokenize chunk. Exception: {str(e)}")
+			utils.debug_print(f"  ERROR: worker_idx: {worker_idx} failed to tokenize chunk. Exception: {str(e)}")
 			continue
 
 		if item_idx < 10 or (item_idx % 1000) == 0:
-			utils.debug_print(f"  worker_idx={worker_idx} item_idx={item_idx} tokenized to {len(our_chunk)}.")
+			utils.debug_print(f"  worker_idx: {worker_idx} item_idx={item_idx} tokenized to {len(our_chunk):,} tokens")
 
 		# Now process in windows of exactly (max_sequence_length + 1)
 		# so input_ids has length max_sequence_length and label_ids has length max_sequence_length.
@@ -548,7 +548,7 @@ def _batcher(
 
 			if len(window) < minimum_sample_length:
 				if (item_idx < 10 or (item_idx % 1000) == 0):
-					utils.debug_print(f"    worker_idx={worker_idx} short window (len={len(window)}) < {minimum_sample_length}, skipping.")
+					utils.debug_print(f"    worker_idx: {worker_idx} short window (len={len(window)}) < {minimum_sample_length}, skipping.")
 				continue
 
 			segment_id = (len(batch_input_ids) + 1)
@@ -564,39 +564,31 @@ def _batcher(
 
 			# If we have enough samples to create a batch, yield or queue a batch
 			if len(batch_input_ids) == batch_size:
-				utils.debug_print(f"    worker_idx={worker_idx} REACHED BATCH SIZE = {batch_size}. Preparing batch.")
+				# utils.debug_print(f"    worker_idx: {worker_idx} reeady to output a batch!")
 				prepared_batch = {
 					"input_ids":   np.array(batch_input_ids,   dtype=np.int64),
 					"label_ids":   np.array(batch_label_ids,   dtype=np.int64),
 					"segment_ids": np.array(batch_segment_ids, dtype=np.int64),
 				}
 
-				if output_queue is not None:
-					utils.debug_print(f"    worker_idx={worker_idx} Attempting to put batch into output_queue. "
-									f"(current queue size unknown in this process)")
-					while True:
-						try:
-							output_queue.put(prepared_batch, block=True, timeout=1)
-							# utils.debug_print(f"    worker_idx: {worker_idx} Added batch into the queue.")
-							break
-						except mp.Queue.Full:
-							utils.debug_print(f"    worker_idx: {worker_idx} Queue is full. Waiting to put batch.")
-							time.sleep(0.1)
+				while True:
+					try:
+						output_queue.put(prepared_batch, block=True, timeout=1)
+						# utils.debug_print(f"    worker_idx: {worker_idx} Added batch into the queue.")
+						break
+					except queue.Full:
+						# utils.debug_print(f"    worker_idx: {worker_idx} Queue is full. Waiting to put batch.")
+						time.sleep(0.1)
 
-						except Exception as e:
-							utils.debug_print(f"    worker_idx: {worker_idx} UNEXPECTED ERROR putting batch into the queue. Exception: {str(e)}")
-							raise e
-				else:
-					# If no queue is provided, we might do a direct yield:
-					utils.debug_print(f"    worker_idx={worker_idx} No output_queue. Possibly yield or do something else.")
-					# yield prepared_batch  # or do something
+					except Exception as e:
+						utils.debug_print(f"    worker_idx: {worker_idx} UNEXPECTED ERROR putting batch into the queue. Exception: {str(e)}")
+						raise e
 
 				batch_input_ids.clear()
 				batch_label_ids.clear()
 				batch_segment_ids.clear()
-				utils.debug_print(f"    worker_idx={worker_idx} batch buffers cleared. Ready for next batch.")
 
-	utils.debug_print(f"  worker_idx={worker_idx} finished iterating over dataset. Exiting _batcher().")
+	utils.debug_print(f"  worker_idx: {worker_idx} finished iterating over dataset. Exiting _batcher().")
 
 # This is a wrapper function to allow passing kwargs to the batcher
 def batcher(kwargs):

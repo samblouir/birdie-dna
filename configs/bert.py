@@ -18,8 +18,8 @@ def get_config():
     config.update({
         "config_name": "bert",
 
-        "batch_size": 4,
-        "sequence_length": 256,
+        "batch_size": 16,
+        "sequence_length": 1024,
         
         # Taken literally for normalization: Each (Attn -> MLP) sequences counts as two layers
         "num_layers": 24,      
