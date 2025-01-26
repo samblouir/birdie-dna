@@ -557,6 +557,20 @@ def _batcher(
 			input_ids = window[:-1]   # length = len(window) - 1
 			label_ids = window[1:]    # length = len(window) - 1
 
+
+			# pad all
+			if len(input_ids) < max_sequence_length:
+				input_ids = np.pad(input_ids, (0, max_sequence_length - len(input_ids)), mode='constant', constant_values=pad_token_id)
+			if len(label_ids) < max_sequence_length:
+				label_ids = np.pad(label_ids, (0, max_sequence_length - len(label_ids)), mode='constant', constant_values=-100)
+			if len(segment_ids) < max_sequence_length:
+				segment_ids = np.pad(segment_ids, (0, max_sequence_length - len(segment_ids)), mode='constant', constant_values=0)
+
+			# Truncate to max_sequence_length
+			input_ids = input_ids[:max_sequence_length]
+			label_ids = label_ids[:max_sequence_length]
+			segment_ids = segment_ids[:max_sequence_length]
+
 			batch_input_ids.append(input_ids)
 			batch_label_ids.append(label_ids)
 			batch_segment_ids.append(segment_ids)
