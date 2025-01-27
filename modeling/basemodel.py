@@ -33,31 +33,21 @@ from modeling import rotary, softcap
 class RMSNorm(nn.Module):
 	"""
 	Root Mean Square Layer Normalization.
-
-	Unlike standard LayerNorm, RMSNorm does not subtract the mean, but rather
-	normalizes by the RMS (sqrt of mean of squares) along the channel dimension.
 	"""
 	def __init__(
 		self,
 		hidden_size: int,
 		eps: float = 1e-5,
 		dtype: torch.dtype = torch.float32,
-		dropout_p: float = 0.0,
 		device: Optional[str] = None,
 		**kwargs
 	):
 		super().__init__()
-		# Use PyTorch's built-in nn.RMSNorm
-		self.norm = nn.RMSNorm(hidden_size, eps=eps, elementwise_affine=True)
-		self.dropout_p = dropout_p  # If you want dropout after norm
+		# Use PyTorch's built-in nn.RMSNorm. This acts as a wrapper to let us switch out the implementation later.
+		self.norm = nn.RMSNorm(hidden_size, eps=eps, elementwise_affine=True, dtype=dtype, device=device)
 
 	def forward(self, x: torch.Tensor, *args, **kwargs,) -> torch.Tensor:
-		"""
-		Apply RMSNorm (and optionally dropout if configured).
-		"""
-		x = self.norm(x)
-		# x = F.dropout(x, p=self.dropout_p, training=self.training)
-		return x
+		return self.norm(x)
 
 
 ################################################################################
@@ -73,7 +63,7 @@ class RMSNorm(nn.Module):
 
 class LinearProjection(nn.Module):
 	"""
-	A single linear layer with optional HPC alignment (dims multiple of 128).
+	A single linear layer with forced dimension alignment (dims are made to be divisible by 128)
 	Uses truncated normal initialization for weights.
 	"""
 	def __init__(self, in_dim: int = None, out_dim: int = None, **kwargs: Any):

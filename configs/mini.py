@@ -19,9 +19,11 @@ def get_config():
         "config_name": "mini",
         
         # Taken literally for normalization: Each (Attn -> MLP) sequences counts as two layers
-        "num_layers": 4,      
+        "num_layers": 4,
+        "hidden_size": 128,
+        "num_heads": 2,
+        "head_dim": 64,
         "num_steps": 1024,
         "eval_interval": 128,
-        # "hidden_size": 128,   
     })
     return config

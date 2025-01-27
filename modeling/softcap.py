@@ -5,8 +5,8 @@ TANH SOFTCAPPING LOGIT MOD
 --------------------------
 Copied from Gemma 2's repo.
 
-Implements a 'tanh softcap' function to limit extreme attention scores,
-inspired by Gemma2 and other experiments.
+Implements a 'tanh softcap' function to limit extreme attention scores.
+Made popular by Gemma 2.
 
 Used in your flex_attention if desired. By default, we simply provide
 utility to generate a function that clamps scores via tanh.

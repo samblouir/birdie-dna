@@ -5,7 +5,7 @@
 PREPARE OPTIMIZER & SCHEDULER
 -----------------------------
 Defines a function to create AdamW and a cosine-with-warmup scheduler for training.
-Excludes embedding parameters from weight decay.
+Does not apply decay to embeddings
 =============================================================================
 """
 
@@ -33,6 +33,7 @@ def create_optimizer(model, config):
 		(optimizer, scheduler)
 	"""
 	# 1) Build param groups
+	## These parameters will not have any weight decay applied to them
 	no_decay_names = [
 		"embeddings",
 	]

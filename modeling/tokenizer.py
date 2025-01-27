@@ -4,7 +4,7 @@
 DNA TOKENIZER (ByT5-based)
 -------------
 Uses Hugging Face's AutoTokenizer to load ByT5, which tokenizes text by
-converting them to their UTF-8 byte index (sometimes indices) representations.
+converting them to their UTF-8 byte index representations (or longer, depending on the character/language).
 =============================================================================
 """
 import config
