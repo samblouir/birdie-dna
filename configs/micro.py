@@ -16,16 +16,16 @@ def get_config():
     """
     config = get_default_config()
     config.update({
-        "config_name": "mini",
+        "config_name": "micro",
 
         "batch_size": 16,
         "sequence_length": 1024,
         
         # Taken literally for normalization: Each (Attn -> MLP) sequences counts as two layers
-        "num_layers": 8,
+        "num_layers": 4,
         "num_steps": 32768,
-        "hidden_size": 768,
-        "num_heads": 12,
+        "hidden_size": 512,
+        "num_heads": 8,
         "head_dim": 64,
         "eval_interval": 512,
     })
