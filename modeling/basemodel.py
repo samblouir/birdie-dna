@@ -44,7 +44,8 @@ class RMSNorm(nn.Module):
 	):
 		super().__init__()
 		# Use PyTorch's built-in nn.RMSNorm. This acts as a wrapper to let us switch out the implementation later.
-		self.norm = nn.RMSNorm(hidden_size, eps=eps, elementwise_affine=True, dtype=dtype, device=device)
+		torch_dtype = utils.str_to_dtype(dtype)
+		self.norm = nn.RMSNorm(hidden_size, eps=eps, elementwise_affine=True, dtype=torch_dtype, device=device)
 
 	def forward(self, x: torch.Tensor, *args, **kwargs,) -> torch.Tensor:
 		return self.norm(x)
