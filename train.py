@@ -174,11 +174,11 @@ def main():
 	# Attempts to make a save, if we haven't made one yet
 	# Create a checkpoint path, e.g.: "./saves/mini/checkpoints/checkpoint_8192"
 	_step_idx = 0
-	checkpoint_dir = os.path.join(checkpoint_dir, f"checkpoint_{int(_step_idx)}")
-	if not os.path.exists(checkpoint_dir):
-		os.makedirs(checkpoint_dir, exist_ok=True)
-		utils.debug_print(f"  Saving checkpoint at step_idx: {_step_idx:,} to:\n\t\"{checkpoint_dir}\"")
-		accelerator.save_state(checkpoint_dir)
+	current_checkpoint_dir = os.path.join(checkpoint_dir, f"checkpoint_{int(_step_idx)}")
+	if not os.path.exists(current_checkpoint_dir):
+		os.makedirs(current_checkpoint_dir, exist_ok=True)
+		utils.debug_print(f"  Saving checkpoint at step_idx: {_step_idx:,} to:\n\t\"{current_checkpoint_dir}\"")
+		accelerator.save_state(current_checkpoint_dir)
 
 	# Loads the model from the last checkpoint, if we have one.
 	last_checkpoint_info = utils.get_checkpoints(config)[-1]
@@ -243,10 +243,10 @@ def main():
 
 		if step_idx % save_interval == 0:
 			# Create a checkpoint path, e.g.: "./saves/mini/checkpoints/checkpoint_8192"
-			checkpoint_dir = os.path.join(checkpoint_dir, f"checkpoint_{int(step_idx)}")
-			os.makedirs(checkpoint_dir, exist_ok=True)
-			accelerator.print(f"  Saving checkpoint at step_idx: {step_idx:,} to:\n\t\"{checkpoint_dir}\"")
-			accelerator.save_state(checkpoint_dir)
+			current_checkpoint_dir = os.path.join(checkpoint_dir, f"checkpoint_{int(step_idx)}")
+			os.makedirs(current_checkpoint_dir, exist_ok=True)
+			accelerator.print(f"  Saving checkpoint at step_idx: {step_idx:,} to:\n\t\"{current_checkpoint_dir}\"")
+			accelerator.save_state(current_checkpoint_dir)
 			utils.debug_print(f"  Saved at step_idx: {step_idx:,}")
 			print(f"\n")
 
