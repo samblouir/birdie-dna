@@ -18,9 +18,9 @@ def add_accelerator_and_log_fn(config):
 	Sets up logging directories,
 	"""
 
-	# Sets a logging directory as 'save_dir'
 	config_name = config.get("config_name", "CONFIG_NAME_NOT_SET")
-	# Save the logs in a directory named after the config
+
+	# Save the logs and checkpoints in a directory named after the config
 	project_dir = os.path.join(os.path.dirname(__file__), "saves", config_name, f"project")
 
 	## Uncomment to run the same config multiple times with seperate log dirs
@@ -30,10 +30,13 @@ def add_accelerator_and_log_fn(config):
 	# 	counter += 1
 	# 	project_dir = os.path.join(os.path.dirname(__file__), "saves", config_name, f"project_{counter}")
 
-	os.makedirs(project_dir, exist_ok=True)
 
 	# Optionally store it in config so train.py can access it
 	config["project_dir"] = project_dir
+	config['checkpoint_dir'] = os.path.join(project_dir, "checkpoints")
+	
+	os.makedirs(config["project_dir"], exist_ok=True)
+	os.makedirs(config['checkpoint_dir'], exist_ok=True)
 
 	config['log_fn'] = partial(
 		utils.log_fn,

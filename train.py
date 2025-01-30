@@ -152,7 +152,7 @@ def main():
 	log_loss_interval = config.get("log_loss_interval", 1)
 	eval_interval = config["eval_interval"]
 	save_interval = config.get("save_interval", eval_interval)
-	save_dir = config.get("save_dir", "saves")
+	checkpoint_dir = config.get("checkpoint_dir", "checkpoints")
 
 
 
@@ -174,7 +174,7 @@ def main():
 	# Attempts to make a save, if we haven't made one yet
 	# Create a checkpoint path, e.g.: "./saves/mini/checkpoints/checkpoint_8192"
 	_step_idx = 0
-	checkpoint_dir = os.path.join(save_dir, "checkpoints", f"checkpoint_{int(_step_idx)}")
+	checkpoint_dir = os.path.join(checkpoint_dir, f"checkpoint_{int(_step_idx)}")
 	if not os.path.exists(checkpoint_dir):
 		os.makedirs(checkpoint_dir, exist_ok=True)
 		utils.debug_print(f"  Saving checkpoint at step_idx: {_step_idx:,} to:\n\t\"{checkpoint_dir}\"")
@@ -243,7 +243,7 @@ def main():
 
 		if step_idx % save_interval == 0:
 			# Create a checkpoint path, e.g.: "./saves/mini/checkpoints/checkpoint_8192"
-			checkpoint_dir = os.path.join(save_dir, "checkpoints", f"checkpoint_{int(step_idx)}")
+			checkpoint_dir = os.path.join(checkpoint_dir, f"checkpoint_{int(step_idx)}")
 			os.makedirs(checkpoint_dir, exist_ok=True)
 			accelerator.print(f"  Saving checkpoint at step_idx: {step_idx:,} to:\n\t\"{checkpoint_dir}\"")
 			accelerator.save_state(checkpoint_dir)
