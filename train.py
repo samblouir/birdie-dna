@@ -253,7 +253,7 @@ def main():
 	accelerator.print("Training complete.")
 
 	# Closes dataloading processes and threads
-	os._exit(0)
+	os._exit(1)
 
 
 

@@ -65,6 +65,7 @@ from tqdm import tqdm
 
 
 
+
 # Returns the checkpoints for a config
 def get_checkpoints(config) -> list:
 	"""
@@ -72,7 +73,6 @@ def get_checkpoints(config) -> list:
 	   saves/[project_dir]/[checkpoint_dir]/checkpoint_*
 	Returns the ascendingly sorted list of subdirectories.
 	"""
-
 	checkpoint_dir = config["checkpoint_dir"]
 
 	if not os.path.exists(checkpoint_dir):
@@ -81,9 +81,9 @@ def get_checkpoints(config) -> list:
 	# Look for subfolders named 'checkpoint_<step>'
 	subdirs = []
 	for name in os.listdir(checkpoint_dir):
-		checkpoint_dir = os.path.join(checkpoint_dir, name)
-		if os.path.isdir(checkpoint_dir) and name.startswith("checkpoint_"):
-			subdirs.append(checkpoint_dir)
+		current_checkpoint_dir = os.path.join(checkpoint_dir, name)
+		if os.path.isdir(current_checkpoint_dir) and name.startswith("checkpoint_"):
+			subdirs.append(current_checkpoint_dir)
 
 	if not subdirs:
 		raise FileNotFoundError(f"No subfolders named 'checkpoint_*' found in '{checkpoint_dir}'. Please make sure you have checkpoints here.")
@@ -92,7 +92,7 @@ def get_checkpoints(config) -> list:
 	def get_step_num(path: str) -> int:
 		basename = os.path.basename(path)
 		# e.g. "checkpoint_8192" -> 8192
-		return int(basename.split("_")[-1])
+		return int(basename.rsplit("_")[-1])
 	
 	# Sort by ascending by step number
 	subdirs.sort(key=lambda p: get_step_num(p))
